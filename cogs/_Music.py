@@ -5,7 +5,8 @@ from discord.ext import commands
 import youtube_dl
 import json
 import asyncio
-
+from typing import Optional
+import logging
 
 def format_time(seconds):
     return f"[{math.floor(seconds / 60)}:{seconds % 60}]"
@@ -21,7 +22,11 @@ class Music(commands.Cog):
         "duration": 0
     }
 
-    def __init__(self, client, channel_name):
+    def __init__(self,
+                 client,
+                 channel_name,
+                 logger: Optional[logging.Logger] = None):
+
         self.client = client
         self.channel_name = channel_name
         self.channel = None
@@ -32,6 +37,7 @@ class Music(commands.Cog):
         self.message = None
         self.is_shuffle = False
         self.is_loop = False
+        self.logger = logger if logger else logging.getLogger(__name__)
 
     async def get_source(self, input):
         FFMPEG_OPTIONS = {
