@@ -8,9 +8,9 @@ import asyncio
 from typing import Optional
 import logging
 
+
 def format_time(seconds):
     return f"[{math.floor(seconds / 60)}:{seconds % 60}]"
-
 
 class Music(commands.Cog):
 
@@ -43,7 +43,7 @@ class Music(commands.Cog):
         FFMPEG_OPTIONS = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 ', 
             'options': '-vn -filter:a "volume=0.5"'
-            }
+        }
         YDL_OPTIONS = {'format': "bestaudio"}
 
         with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
@@ -174,7 +174,7 @@ class Music(commands.Cog):
         if reaction.emoji == "🔀":
             self.shuffle()
         await reaction.remove(user)
-        
+
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -210,6 +210,3 @@ class Music(commands.Cog):
         await self.message.add_reaction("🔊")
         await self.message.add_reaction("🔄")
         await self.message.add_reaction("🔀")
-
-def setup(client):
-    client.add_cog(Music(client, "musica"))
