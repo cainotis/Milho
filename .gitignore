@@ -2,6 +2,9 @@
 *.git
 
 # logs
+*.log
+
+# cache
 *__pycache__
 
 # compactados
