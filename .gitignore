@@ -16,3 +16,6 @@
 
 # hidden files
 .*
+
+# data
+data*
