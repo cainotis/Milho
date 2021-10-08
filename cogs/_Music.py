@@ -8,6 +8,7 @@ from discord.ext import commands
 from typing import Optional
 import logging
 import youtube_dl
+from sqlalchemy.orm import Session
 
 
 def format_time(seconds):
@@ -105,10 +106,12 @@ class Music(commands.Cog):
 
     def __init__(self,
                  client,
+                 session: Session,
                  channel_name: Optional[str] = 'musica',
                  logger: Optional[logging.Logger] = None):
 
         self.client = client
+        self.session = session
         self.channel_name = channel_name
         self.channel = None
         self.queue = []
@@ -294,8 +297,6 @@ class Music(commands.Cog):
         await self.message.add_reaction("🔊")
         await self.message.add_reaction("🔄")
         await self.message.add_reaction("🔀")
-        self.channel = ctx.channel
-        self.channel_name = ctx.channel.name
 
     @commands.command()
     async def setup(self, ctx):
