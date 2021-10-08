@@ -7,6 +7,8 @@
 
 2. Inicie o Banco de dados com ´´´alembic upgrade head´´´
 
+3. Instale o ffmpeg ´´´apt install ffmpeg´´´
+
 ## Uso
 
 Rode o arquivo main.py
