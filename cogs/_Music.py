@@ -1,4 +1,5 @@
-import re 
+import re
+import os
 import math
 import discord
 import asyncio
@@ -25,8 +26,8 @@ def fetch_info(input):
 
     text = not(single or playlist)
 
-    YDL_OPTIONS = {'format': "bestaudio",
-                   "cookiefile": "youtube.com_cookies.txt"}
+    YDL_OPTIONS = {"format": "bestaudio"}
+    YDL_OPTIONS["cookiefile"] = os.environ.get("COOKIES_FILE")
     if text:
         input = "ytsearch:" + input
     info = youtube_dl.YoutubeDL(
@@ -260,6 +261,7 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
+        # TODO: fetch every music channel
         self.channel = await self.get_channel()
         self.message = await self.get_message()
 
@@ -284,6 +286,29 @@ class Music(commands.Cog):
             await ctx.voice_client.disconnect()
         message, embed = self.create_embed()
         self.message = await ctx.send(message, embed=embed)
+        await self.message.add_reaction("⏯️")
+        await self.message.add_reaction("⏹️")
+        await self.message.add_reaction("⏭️")
+        await self.message.add_reaction("🔈")
+        await self.message.add_reaction("🔊")
+        await self.message.add_reaction("🔄")
+        await self.message.add_reaction("🔀")
+
+    @commands.command()
+    async def setup(self, ctx):
+        message, embed = self.create_embed()
+        self.channel = await ctx.guild.create_text_channel("musica-do-milho", topic="""
+        ⏯️ Pausar/Resumir a música
+        ⏹ Para e limpa a fila
+        ⏭️ Pula a música
+        🔈 Diminui o volume
+        🔊 Aumenta o volume
+        🔄 Ativar/Desativar Loop
+        🔀 Ativar/Desativar Shuffle
+        """)
+        await ctx.send(f"Criei o canal <#{self.channel.id}> para receber comandos!")
+        # TODO: store guild and channel in database
+        self.message = await self.channel.send(message, embed=embed)
         await self.message.add_reaction("⏯️")
         await self.message.add_reaction("⏹️")
         await self.message.add_reaction("⏭️")
