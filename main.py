@@ -19,7 +19,7 @@ logger = logging.getLogger('baseLogger')
 
 
 def load_cogs(client: commands.Bot):
-    client.add_cog(Music(client, "musica", logger))
+    client.add_cog(Music(client, "musica", logger=logger))
 
 
 def load_extensions(client: commands.Bot):

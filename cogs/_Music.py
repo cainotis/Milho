@@ -105,7 +105,7 @@ class Music(commands.Cog):
 
     def __init__(self,
                  client,
-                 channel_name,
+                 channel_name: Optional[str] = 'musica',
                  logger: Optional[logging.Logger] = None):
 
         self.client = client
@@ -222,7 +222,7 @@ class Music(commands.Cog):
 
     async def get_channel(self):
         for channel in self.client.get_guild(604845190251020298).channels:
-            if channel.name == "musica":
+            if channel.name == self.channel_name:
                 return channel
 
     async def get_message(self):
@@ -270,6 +270,7 @@ class Music(commands.Cog):
         if not self.is_valid(message):
             return
 
+        print("foi")
         await message.delete()
         input = message.content
         if message.author.voice is None:
@@ -293,6 +294,8 @@ class Music(commands.Cog):
         await self.message.add_reaction("🔊")
         await self.message.add_reaction("🔄")
         await self.message.add_reaction("🔀")
+        self.channel = ctx.channel
+        self.channel_name = ctx.channel.name
 
     @commands.command()
     async def setup(self, ctx):
