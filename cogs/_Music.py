@@ -1,26 +1,107 @@
+import re
+import os
 import math
-from random import Random, random
 import discord
-from discord.ext import commands
-import youtube_dl
-import json
 import asyncio
+from random import Random, random
+from discord.ext import commands
 from typing import Optional
 import logging
+import youtube_dl
 
 
 def format_time(seconds):
-    return f"[{math.floor(seconds / 60)}:{seconds % 60}]"
+    hour = math.floor(seconds / (60 * 60))
+    hour = (str(hour).zfill(2) + ":") if hour > 0 else ""
+    minutes = str(math.floor(seconds / 60) % 60).zfill(2) + ":"
+    return f"[{hour}{minutes}{str(math.floor(seconds % 60)).zfill(2)}]"
+
+
+def fetch_info(input):
+    single = re.search(
+        r"(https?://(www\.|m\.|)youtube\.com/watch.*)|(https?:\\youtu\.be\/.*)", input) != None
+
+    playlist = re.search(
+        r"https?://(www\.|m\.|)youtube\.com/playlist\?list=.*", input) != None
+
+    text = not(single or playlist)
+
+    YDL_OPTIONS = {"format": "bestaudio"}
+    YDL_OPTIONS["cookiefile"] = os.environ.get("COOKIES_FILE")
+    if text:
+        input = "ytsearch:" + input
+    info = youtube_dl.YoutubeDL(
+        YDL_OPTIONS).extract_info(input, download=False)
+    if single:
+        playlist = [info]
+    else:
+        playlist = info["entries"]
+    return playlist
+
+
+def fetch_sources(input):
+    entries = fetch_info(input)
+    songs = []
+    for entry in entries:
+
+        title = entry["title"]
+        url = entry['formats'][0]['url']
+        duration = entry["duration"]
+        thumbnail = entry["thumbnails"][-1]["url"]
+        volume = 1.0
+
+        songs.append(Song(title, url, duration, thumbnail, volume))
+
+    return songs
+
+
+class Song():
+
+    DEFAULT_TITLE = "Nenhuma música tocando"
+    FFMPEG_OPTIONS = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 ',
+
+    }
+
+    def __init__(self, title=DEFAULT_TITLE, url="", duration=0, image="", volume=0):
+        self.title = title
+        self.url = url
+        self.duration = duration
+        self.image = image
+        self.volume = volume
+        if url != "":
+            self.source = discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(
+                    url,
+                    **self.FFMPEG_OPTIONS,
+                    options=f'-vn -filter:a "volume={float(volume)}"'
+                ),
+                volume=volume)
+        else:
+            self.source = None
+
+    def __eq__(self, other):
+        if not isinstance(other, Song):
+            return NotImplemented
+
+        return self.url == other.url
+
+    def is_null(self):
+        return self.title == self.DEFAULT_TITLE and self.image == ""
+
+    def change_volume(self, value):
+        self.source.volume += value
+        self.volume += value
+
+    def get_values(self):
+        return (self.title, self.url, self.duration, self.image)
+
 
 class Music(commands.Cog):
 
-    NO_MUSIC_PLAYING = "Nenhuma música tocando"
-    NO_SONG = {
-        "source": "",
-        "title": "",
-        "thumbnail": "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif",
-        "duration": 0
-    }
+    DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
+
+    NO_SONG = Song()
 
     def __init__(self,
                  client,
@@ -31,74 +112,73 @@ class Music(commands.Cog):
         self.channel_name = channel_name
         self.channel = None
         self.queue = []
+        self.logger = logger
         self.current_song = self.NO_SONG
-        self.title = self.NO_MUSIC_PLAYING
-        self.default_volume = 0.1
         self.message = None
         self.is_shuffle = False
         self.is_loop = False
-        self.logger = logger if logger else logging.getLogger(__name__)
-
-    async def get_source(self, input):
-        FFMPEG_OPTIONS = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 ', 
-            'options': '-vn -filter:a "volume=0.5"'
-        }
-        YDL_OPTIONS = {'format': "bestaudio"}
-
-        with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info("ytsearch:" + input, download=False)
-            # print(json.dumps(info, indent=2))
-            url2 = info['entries'][0]['formats'][0]['url']
-            source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url2, **FFMPEG_OPTIONS), volume=self.default_volume)
-            return source, info['entries'][0]
 
     def create_embed(self):
         message = "__**Filinha de música:**__\n"
         message += "\n".join(map(lambda x: "• " +
-                             x["title"], self.queue)) if self.queue else ""
+                             x.title, self.queue)) + "\n" if self.queue else ""
         message += "\nDigite o nome da música ou o url do youtube para tocar"
 
-        duration = format_time(self.current_song["duration"])
-        title = duration + ' - ' + self.current_song["title"] if self.current_song["title"] != "" else self.NO_MUSIC_PLAYING
+        duration = format_time(self.current_song.duration)
+        if self.current_song.is_null():
+            title = self.current_song.title
+        else:
+            title = duration + " " + self.current_song.title
 
         embed = discord.Embed(title=title)
-        embed.set_image(url=self.current_song["thumbnail"])
+        embed.add_field(
+            name="Volume", value=f"__{format(self.current_song.volume, '.1f')}/1.0__", inline=True)
+        embed.add_field(
+            name="Loop", value="__On__" if self.is_loop else "__Off__", inline=True)
+        embed.add_field(
+            name="Shuffle", value="__On__" if self.is_shuffle else "__Off__", inline=True)
+        embed.set_thumbnail(url=self.DEFAULT_THUMBNAIL)
+        embed.set_image(url=self.current_song.image)
 
         return message, embed
 
-    async def add_to_queue(self, query):
-        source, info = await self.get_source(query)
-        self.queue.append({
-            "source": source,
-            "title": info["title"],
-            "thumbnail": info["thumbnails"][-1]["url"],
-            "duration": info["duration"]})
-        await self.update()
-
-    async def update(self):
+    def update(self):
+        self.logger.info('Updating')
         message, embed = self.create_embed()
-        await self.message.edit(content=message, embed=embed)
+        asyncio.ensure_future(self.message.edit(
+            content=message, embed=embed), loop=self.client.loop)
 
-    async def play_song(self, error=None):
-        if not self.queue and not self.is_loop:
+    def add_to_queue(self, query):
+        self.logger.info("Fetching sources")
+        songs = fetch_sources(query)
+        self.logger.info("Finished fetching sources")
+        self.queue.extend(songs)
+        if self.current_song == self.NO_SONG:
+            self.logger.info('Playing song')
+            self.current_song = self.queue[0]
+            self.client.voice_clients[0].play(
+                self.current_song.source, after=self.play_next)
+            self.queue.pop(0)
+
+    def play_next(self, error=None):
+        if not self.queue:
+            self.logger.info("The queue is empty")
             self.current_song = self.NO_SONG
-            await self.update()
-            print("empty queue")
+            self.update()
             return
-        if self.is_loop and self.current_song != self.NO_SONG:
-            self.queue.append(self.current_song)
+
+        self.logger.info('The queue is not empty')
+        # if self.is_loop and self.current_song:
+        #    self.queue.append(self.current_song)
         index = Random.randint(len(self.queue) - 1) if self.is_shuffle else 0
+        self.logger('Playing song')
         self.current_song = self.queue[index]
         self.client.voice_clients[0].play(
-            self.current_song["source"],
-            after=lambda e: asyncio.run_coroutine_threadsafe(
-                self.play_song(), self.client.loop)
-        )
+            self.current_song.source, after=self.play_next)
         self.queue.pop(index)
-        await self.update()
+        self.update()
 
-    async def play_pause(self):
+    def play_pause(self):
         if self.current_song == self.NO_SONG:
             return
         vc = self.client.voice_clients[0]
@@ -107,29 +187,32 @@ class Music(commands.Cog):
         else:
             vc.pause()
 
-    async def stop(self):
+    def stop(self):
         vc = self.client.voice_clients[0]
         if vc.is_playing():
             vc.stop()
-        print("stopped")
+            self.logger.info("stopped")
         self.current_song = self.NO_SONG
-        await self.update()
 
-    async def skip(self):
-        if self.current_song == self.NO_SONG:
-            return
-        await self.stop()
-        await self.play_song()
+    def skip(self):
+        if self.queue:
+            index = Random.randint(
+                len(self.queue) - 1) if self.is_shuffle else 0
+            self.current_song = self.queue[index]
+        else:
+            self.current_song = self.NO_SONG
+            self.stop()
+        try:
+            self.client.voice_clients[0].source = self.current_song.source
+            self.queue.pop(index)
+        except Exception as e:
+            self.logger.error(e)
 
     def volume_up(self):
-        if self.current_song == self.NO_SONG:
-            return
-        self.current_song["source"].volume += 0.1
+        self.current_song.change_volume(0.1)
 
     def volume_down(self):
-        if self.current_song == self.NO_SONG:
-            return
-        self.current_song["source"].volume -= 0.1
+        self.current_song.change_volume(-0.1)
 
     def loop(self):
         self.is_loop = not self.is_loop
@@ -164,20 +247,21 @@ class Music(commands.Cog):
         if reaction.emoji == "🔈":
             self.volume_down()
         if reaction.emoji == "⏹️":
-            await self.stop()
+            self.stop()
         if reaction.emoji == "⏯️":
-            await self.play_pause()
+            self.play_pause()
         if reaction.emoji == "⏭️":
-            await self.skip()
+            self.skip()
         if reaction.emoji == "🔄":
             self.loop()
         if reaction.emoji == "🔀":
             self.shuffle()
         await reaction.remove(user)
-
+        self.update()
 
     @commands.Cog.listener()
     async def on_ready(self):
+        # TODO: fetch every music channel
         self.channel = await self.get_channel()
         self.message = await self.get_message()
 
@@ -192,9 +276,8 @@ class Music(commands.Cog):
             return
 
         await self.join(message)
-        await self.add_to_queue(input)
-        if not message.guild.voice_client.is_playing():
-            await self.play_song()
+        self.add_to_queue(input)
+        self.update()
 
     @commands.command()
     async def start(self, ctx):
@@ -203,6 +286,29 @@ class Music(commands.Cog):
             await ctx.voice_client.disconnect()
         message, embed = self.create_embed()
         self.message = await ctx.send(message, embed=embed)
+        await self.message.add_reaction("⏯️")
+        await self.message.add_reaction("⏹️")
+        await self.message.add_reaction("⏭️")
+        await self.message.add_reaction("🔈")
+        await self.message.add_reaction("🔊")
+        await self.message.add_reaction("🔄")
+        await self.message.add_reaction("🔀")
+
+    @commands.command()
+    async def setup(self, ctx):
+        message, embed = self.create_embed()
+        self.channel = await ctx.guild.create_text_channel("musica-do-milho", topic="""
+        ⏯️ Pausar/Resumir a música
+        ⏹ Para e limpa a fila
+        ⏭️ Pula a música
+        🔈 Diminui o volume
+        🔊 Aumenta o volume
+        🔄 Ativar/Desativar Loop
+        🔀 Ativar/Desativar Shuffle
+        """)
+        await ctx.send(f"Criei o canal <#{self.channel.id}> para receber comandos!")
+        # TODO: store guild and channel in database
+        self.message = await self.channel.send(message, embed=embed)
         await self.message.add_reaction("⏯️")
         await self.message.add_reaction("⏹️")
         await self.message.add_reaction("⏭️")
