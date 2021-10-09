@@ -33,7 +33,7 @@ class Player(commands.Cog):
         self.queue = []
         self.current_song = self.NO_SONG
         self.is_shuffle = False
-        self.is_loop = False
+        self.loop_mode = 0
         self.music_channel = None
         self.message = None
 
@@ -98,12 +98,14 @@ class Player(commands.Cog):
             "\n\nDigite o nome da música ou o url do youtube para tocar\n"
         )
         embed = discord.Embed(title=self.current_song.get_full_title())
-        embed.add_field(
-            name="Volume", value=f"__{format(self.current_song.volume, '.1f')}/1.0__", inline=True)
-        embed.add_field(
-            name="Loop", value="__On__" if self.is_loop else "__Off__", inline=True)
-        embed.add_field(
-            name="Shuffle", value="__On__" if self.is_shuffle else "__Off__", inline=True)
+        value = f"__{format(self.current_song.volume, '.1f')}/1.0__"
+        embed.add_field(name="Volume", value=value, inline=True)
+
+        value = ["🚫", "🔁", "🔂"][self.loop_mode]
+        embed.add_field(name="Loop", value=value, inline=True)
+
+        value = "🔀" if self.is_shuffle else "🚫"
+        embed.add_field(name="Shuffle", value=value, inline=True)
         embed.set_thumbnail(url=self.DEFAULT_THUMBNAIL)
         embed.set_image(url=self.current_song.image)
 
@@ -124,8 +126,9 @@ class Player(commands.Cog):
             self.play()
         self.update()
 
-    def play(self):
-        index = Random.randint(len(self.queue) - 1) if self.is_shuffle else 0
+    def play(self, index=-1):
+        if index == -1:
+            index = Random.randint(len(self.queue) - 1) if self.is_shuffle else 0
         self.info('Playing song')
         self.current_song = self.queue[index]
         self.guild.voice_client.play(
@@ -138,12 +141,8 @@ class Player(commands.Cog):
             self.current_song = self.NO_SONG
             self.error(error)
             return
-        if self.is_loop:
-            if not self.current_song:
-                self.error('Current_song error')
-            self.queue.append(self.current_song)
-            self.play()
-        else:
+        # No loop
+        if self.loop_mode == 0:
             if not self.queue:
                 self.info("The queue is empty")
                 self.current_song = self.NO_SONG
@@ -151,10 +150,25 @@ class Player(commands.Cog):
                 self.info('The queue is not empty')
                 self.play()
 
+        # Loop all
+        elif self.loop_mode == 1:
+            if not self.current_song:
+                self.error('Current_song error')
+            self.queue.append(self.current_song)
+            self.play()
+
+        #Loop single
+        elif self.loop_mode == 2:
+            if not self.current_song:
+                self.error('Current_song error')
+            self.queue.insert(0, self.current_song)
+            self.play(0)
+
         self.update()
             
 
     def play_pause(self):
+        self.info("Running play_pause")
         if self.current_song == self.NO_SONG:
             return
         vc = self.guild.voice_client
@@ -164,6 +178,7 @@ class Player(commands.Cog):
             vc.pause()
 
     def stop(self):
+        self.info("Running stop")
         vc = self.guild.voice_client
         if vc.is_playing():
             vc.stop()
@@ -172,6 +187,7 @@ class Player(commands.Cog):
         self.update()
 
     def skip(self):
+        self.info("Running skip")
         if self.queue:
             index = Random.randint(
                 len(self.queue) - 1) if self.is_shuffle else 0
@@ -186,13 +202,19 @@ class Player(commands.Cog):
             self.error(e)
 
     def volume_up(self):
+        self.info("Running volume_up")
         self.current_song.change_volume(0.1)
 
     def volume_down(self):
+        self.info("Running volume_down")
         self.current_song.change_volume(-0.1)
 
     def loop(self):
-        self.is_loop = not self.is_loop
+        self.info("Running loop")
+        self.loop_mode += 1
+        if self.loop_mode == 3:
+            self.loop_mode = 0
 
     def shuffle(self):
+        self.info("Running shuffle")
         self.is_shuffle = not self.is_shuffle
