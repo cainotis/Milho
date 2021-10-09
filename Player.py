@@ -1,0 +1,198 @@
+import re
+import math
+import discord
+import asyncio
+from discord import Guild, Message, TextChannel, Client, User, VoiceClient 
+from discord.ext.commands import Context
+from random import Random, random
+from discord.ext import commands
+from typing import Optional, List
+import logging
+from sqlalchemy.orm import Session
+from Song import Song, fetch_sources
+
+
+from models import Server
+
+class Player(commands.Cog):
+
+    DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
+
+    NO_SONG:Song = Song()
+
+    def __init__(self,
+                 client: Client,
+                 guild: Guild,
+                 session: Session,
+                 logger: Optional[logging.Logger] = None):
+
+        self.client = client
+        self.guild = guild
+        self.session = session
+        self.logger = logger
+        self.queue = []
+        self.current_song = self.NO_SONG
+        self.is_shuffle = False
+        self.is_loop = False
+        self.music_channel = None
+        self.message = None
+
+    @classmethod
+    async def create(cls,
+                     client: Client,
+                     guild: Guild,
+                     session: Session,
+                     logger: Optional[logging.Logger] = None):
+
+        self = Player(client, guild, session, logger)
+        
+        content, embed = self.create_embed()
+        self.music_channel = await self.guild.create_text_channel("musica-do-milho", topic="""
+        ⏯️ Pausar/Resumir a música
+        ⏹ Para e limpa a fila
+        ⏭️ Pula a música
+        🔈 Diminui o volume
+        🔊 Aumenta o volume
+        🔄 Ativar/Desativar Loop
+        🔀 Ativar/Desativar Shuffle
+        """)
+
+        channel_item = Server(guild=self.guild.id, chat=self.music_channel.id)
+        self.session.add(channel_item)
+        self.session.commit()
+
+        self.message = await self.music_channel.send(content=content, embed=embed)
+        await self.message.add_reaction("⏯️")
+        await self.message.add_reaction("⏹️")
+        await self.message.add_reaction("⏭️")
+        await self.message.add_reaction("🔈")
+        await self.message.add_reaction("🔊")
+        await self.message.add_reaction("🔄")
+        await self.message.add_reaction("🔀")
+        return self
+
+    @classmethod
+    async def fetch(cls,
+                    client: Client,
+                    guild: Guild,
+                    channel_id: int,
+                    session: Session,
+                    logger: Optional[logging.Logger] = None):
+
+        self = Player(client, guild, session, logger)
+        self.music_channel = self.client.get_channel(int(channel_id))
+        self.message = (await self.music_channel.history().flatten())[0]
+        return self
+
+
+    def info(self, message):
+        self.logger.info(f"Guild {self.guild.name} {message}")
+
+    def error(self, message):
+        self.logger.error(f"Guild {self.guild.name} {message}")
+
+    def create_embed(self):
+        message = (
+            "__**Filinha de música:**__\n" +
+            ('\n'.join(map(lambda x: '• ' + x.title, self.queue)) if self.queue else '') +
+            "\n\nDigite o nome da música ou o url do youtube para tocar\n"
+        )
+        embed = discord.Embed(title=self.current_song.get_full_title())
+        embed.add_field(
+            name="Volume", value=f"__{format(self.current_song.volume, '.1f')}/1.0__", inline=True)
+        embed.add_field(
+            name="Loop", value="__On__" if self.is_loop else "__Off__", inline=True)
+        embed.add_field(
+            name="Shuffle", value="__On__" if self.is_shuffle else "__Off__", inline=True)
+        embed.set_thumbnail(url=self.DEFAULT_THUMBNAIL)
+        embed.set_image(url=self.current_song.image)
+
+        return message, embed
+
+    def update(self):
+        self.info("Updating")
+        content, embed = self.create_embed()
+        asyncio.ensure_future(self.message.edit(
+            content=content, embed=embed), loop=self.client.loop)
+
+    def add_to_queue(self, query):
+        self.info("Fetching sources")
+        songs = fetch_sources(query)
+        self.info("Finished fetching sources")
+        self.queue.extend(songs)
+        if self.current_song == self.NO_SONG:
+            self.play()
+        self.update()
+
+    def play(self):
+        index = Random.randint(len(self.queue) - 1) if self.is_shuffle else 0
+        self.info('Playing song')
+        self.current_song = self.queue[index]
+        self.guild.voice_client.play(
+            self.current_song.source, after=self.play_next
+        )
+        self.queue.pop(index)
+
+    def play_next(self, error=None):
+        if error is not None:
+            self.current_song = self.NO_SONG
+            self.error(error)
+            return
+        if self.is_loop:
+            if not self.current_song:
+                self.error('Current_song error')
+            self.queue.append(self.current_song)
+            self.play()
+        else:
+            if not self.queue:
+                self.info("The queue is empty")
+                self.current_song = self.NO_SONG
+            else:
+                self.info('The queue is not empty')
+                self.play()
+
+        self.update()
+            
+
+    def play_pause(self):
+        if self.current_song == self.NO_SONG:
+            return
+        vc = self.guild.voice_client
+        if vc.is_paused():
+            vc.resume()
+        else:
+            vc.pause()
+
+    def stop(self):
+        vc = self.guild.voice_client
+        if vc.is_playing():
+            vc.stop()
+            self.info("stopped")
+        self.current_song = self.NO_SONG
+        self.update()
+
+    def skip(self):
+        if self.queue:
+            index = Random.randint(
+                len(self.queue) - 1) if self.is_shuffle else 0
+            self.current_song = self.queue[index]
+        else:
+            self.current_song = self.NO_SONG
+            self.stop()
+        try:
+            self.guild.voice_client.source = self.current_song.source
+            self.queue.pop(index)
+        except Exception as e:
+            self.error(e)
+
+    def volume_up(self):
+        self.current_song.change_volume(0.1)
+
+    def volume_down(self):
+        self.current_song.change_volume(-0.1)
+
+    def loop(self):
+        self.is_loop = not self.is_loop
+
+    def shuffle(self):
+        self.is_shuffle = not self.is_shuffle
