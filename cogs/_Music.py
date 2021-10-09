@@ -44,22 +44,23 @@ class Music(commands.Cog):
     async def on_raw_reaction_add(self, payload):
         channel = self.client.get_channel(payload.channel_id)
         message = channel.get_partial_message(payload.message_id)
-        player = self.players[payload.guild_id]
+        player = self.players[str(payload.guild_id)]
+        emoji = str(payload.emoji)
         if payload.member.bot:
             return
-        if payload.emoji == "🔊":
+        if emoji == "🔊":
             player.volume_up()
-        if payload.emoji == "🔈":
+        if emoji == "🔈":
             player.volume_down()
-        if payload.emoji == "⏹️":
+        if emoji == "⏹️":
             player.stop()
-        if payload.emoji == "⏯️":
+        if emoji == "⏯️":
             player.play_pause()
-        if payload.emoji == "⏭️":
+        if emoji == "⏭️":
             player.skip()
-        if payload.emoji == "🔄":
+        if emoji == "🔄":
             player.loop()
-        if payload.emoji == "🔀":
+        if emoji == "🔀":
             player.shuffle()
         await message.remove_reaction(payload.emoji, payload.member)
         player.update()
