@@ -57,7 +57,7 @@ class Player(commands.Cog):
         🔀 Ativar/Desativar Shuffle
         """)
 
-        channel_item = Server(guild=self.guild.id, chat=self.music_channel.id)
+        channel_item = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
         self.session.add(channel_item)
         self.session.commit()
 

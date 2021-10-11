@@ -33,7 +33,7 @@ class Music(commands.Cog):
             result = (
                 self.session
                     .query(Server)
-                    .filter_by(guild=message.guild.id, chat=message.channel.id)
+                    .filter_by(guild_id=message.guild.id, channel_id=message.channel.id)
                     .first()
             )
             if result:
@@ -44,7 +44,7 @@ class Music(commands.Cog):
     async def on_raw_reaction_add(self, payload):
         channel = self.client.get_channel(payload.channel_id)
         message = channel.get_partial_message(payload.message_id)
-        player = self.players[str(payload.guild_id)]
+        player = self.players[payload.guild_id]
         emoji = str(payload.emoji)
         if payload.member.bot:
             return
@@ -70,9 +70,9 @@ class Music(commands.Cog):
         #self.session.query(Server).delete()
         results = self.session.query(Server).all()
         for result in results:
-            guild = self.client.get_guild(int(result.guild))
-            self.players[result.guild] = await Player.fetch(
-                self.client, guild, result.chat, self.session, self.logger
+            guild = self.client.get_guild(result.guild_id)
+            self.players[result.guild_id] = await Player.fetch(
+                self.client, guild, result.channel_id, self.session, self.logger
             )
         pass
         # TODO: fetch every music channel
@@ -91,7 +91,7 @@ class Music(commands.Cog):
                 return
 
             await self.join(message)
-            self.players[str(message.guild.id)].add_to_queue(input)
+            self.players[message.guild.id].add_to_queue(input)
         except IndexError as e:
             self.logger.error("Guild not registered")
             self.logger.error(e)
