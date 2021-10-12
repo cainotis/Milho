@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import logging
 import logging.config
 import yaml
+import sqlalchemy
 
 from cogs import Music
 
@@ -18,8 +19,8 @@ logging.config.dictConfig(config)
 logger = logging.getLogger('baseLogger')
 
 
-def load_cogs(client: commands.Bot):
-    client.add_cog(Music(client, "musica", logger))
+def load_cogs(client: commands.Bot, session: sqlalchemy.orm.Session):
+    client.add_cog(Music(client, logger=logger, session=session))
 
 
 def load_extensions(client: commands.Bot):
@@ -57,6 +58,13 @@ async def on_ready():
     logger.info("bot is ready")
 
 if __name__ == '__main__':
-    load_cogs(client)
+
+    engine = sqlalchemy.create_engine('sqlite:///data.db')
+
+    session_maker = sqlalchemy.orm.sessionmaker(engine)
+    session = session_maker()
+
+    load_cogs(client, session)
     load_extensions(client)
+    
     client.run(os.environ.get('BOT_TOKEN'))
