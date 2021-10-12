@@ -20,7 +20,7 @@ handlers:
     mode: a
 
 loggers:
-  baseLogger:
+  Milho:
     level: INFO
     handlers: [console, file]
     propagate: False
