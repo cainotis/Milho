@@ -16,7 +16,7 @@ with open('logging.yaml', 'r') as stream:
     config = yaml.load(stream, Loader=yaml.FullLoader)
 
 logging.config.dictConfig(config)
-logger = logging.getLogger('baseLogger')
+logger = logging.getLogger('Milho')
 
 
 def load_cogs(client: commands.Bot, session: sqlalchemy.orm.Session):

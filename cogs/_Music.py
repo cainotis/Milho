@@ -1,8 +1,11 @@
+from discord import Embed, Colour
 from discord.ext import commands
 from typing import Dict, Optional
-import logging
 from sqlalchemy.orm import Session
-from Player import Player
+import logging
+import asyncio
+
+from cogs import Player
 from models import Server
 
 
@@ -67,17 +70,12 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        #self.session.query(Server).delete()
         results = self.session.query(Server).all()
         for result in results:
             guild = self.client.get_guild(result.guild_id)
             self.players[result.guild_id] = await Player.fetch(
                 self.client, guild, result.channel_id, self.session, self.logger
             )
-        pass
-        # TODO: fetch every music channel
-        # self.channel = await self.get_channel()
-        # self.message = await self.get_message()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -88,6 +86,11 @@ class Music(commands.Cog):
             await message.delete()
             input = message.content
             if message.author.voice is None:
+                self.logger.debug("song request by a no channel user")
+                embed = Embed(title="You have to join a voice channel first.", colour=Colour.dark_magenta())
+                reply = await message.channel.send(embed=embed)
+                await asyncio.sleep(2)
+                await reply.delete()
                 return
 
             await self.join(message)
