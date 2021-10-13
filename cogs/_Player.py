@@ -1,10 +1,12 @@
-import re
-import math
 import discord
 import asyncio
-from discord import Guild, Message, TextChannel, Client, User, VoiceClient 
-from discord.ext.commands import Context
-from random import Random, random
+from discord import Guild, \
+                    Message, \
+                    TextChannel, \
+                    Client, \
+                    User, \
+                    VoiceClient 
+from random import Random
 from discord.ext import commands
 from typing import Optional, List
 import logging
@@ -42,25 +44,50 @@ class Player(commands.Cog):
                      client: Client,
                      guild: Guild,
                      session: Session,
+                     channel_name: Optional[str] = None,
                      logger: Optional[logging.Logger] = None):
 
         self = Player(client, guild, session, logger)
         
-        content, embed = self.create_embed()
-        self.music_channel = await self.guild.create_text_channel("musica-do-milho", topic="""
-        ⏯️ Pausar/Resumir a música
-        ⏹ Para e limpa a fila
-        ⏭️ Pula a música
-        🔈 Diminui o volume
-        🔊 Aumenta o volume
-        🔄 Ativar/Desativar Loop
-        🔀 Ativar/Desativar Shuffle
-        """)
+        channel_name = channel_name if channel_name else "musica-do-milho"
 
-        channel_item = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
-        self.session.add(channel_item)
+        server = session.query(Server).filter(Server.guild_id == self.guild.id).first()
+        
+        channel = None
+        if server:
+            logger.debug(f"fixing channel on server {guild.id}")
+            channel = guild.get_channel(server.channel_id)
+
+        if channel is None:
+            for ch in guild.text_channels:
+                if ch.name == channel_name:
+                    channel = ch
+                    break
+
+        if channel:
+            logger.debug(f"cleaning channel on server {guild.id}")
+            await channel.purge()
+            self.music_channel = channel
+        else:
+            logger.debug(f"creating channel on server {guild.id}")
+            self.music_channel = await self.guild.create_text_channel(channel_name, topic="""
+                ⏯️ Pausar/Resumir a música
+                ⏹ Para e limpa a fila
+                ⏭️ Pula a música
+                🔈 Diminui o volume
+                🔊 Aumenta o volume
+                🔄 Ativar/Desativar Loop
+                🔀 Ativar/Desativar Shuffle
+            """)
+
+        if server:
+            server.channel_id = self.music_channel.id
+        else:
+            server = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
+            self.session.add(server)
         self.session.commit()
 
+        content, embed = self.create_embed()
         self.message = await self.music_channel.send(content=content, embed=embed)
         await self.message.add_reaction("⏯️")
         await self.message.add_reaction("⏹️")
@@ -165,7 +192,6 @@ class Player(commands.Cog):
             self.play(0)
 
         self.update()
-            
 
     def play_pause(self):
         self.info("Running play_pause")
