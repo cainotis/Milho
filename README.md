@@ -3,11 +3,11 @@
 
 ## Instalação
 
-1. Instale as dependencias com ´´´pip install -r requirements.txt´´´
+1. Instale as dependencias com `pip install -r requirements.txt`
 
-2. Inicie o Banco de dados com ´´´alembic upgrade head´´´
+2. Inicie o Banco de dados com `alembic upgrade head`
 
-3. Instale o ffmpeg ´´´apt install ffmpeg´´´
+3. Instale o ffmpeg `apt install ffmpeg`
 
 ## Uso
 
