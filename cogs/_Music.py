@@ -44,10 +44,10 @@ class Music(commands.Cog):
     async def on_raw_reaction_add(self, payload):
         channel = self.client.get_channel(payload.channel_id)
         message = channel.get_partial_message(payload.message_id)
-        player = self.players[payload.guild_id]
         emoji = str(payload.emoji)
         if payload.member.bot:
             return
+        player = self.players[payload.guild_id]
         if emoji == "🔊":
             player.volume_up()
         if emoji == "🔈":
