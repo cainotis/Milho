@@ -116,6 +116,9 @@ class Music(commands.Cog):
 
     @commands.command()
     async def setup(self, ctx):
+
+        self.logger.info(f"seting up text channel in {ctx.guild.id}")
+
         channel_name = ' '.join(ctx.message.clean_content.split()[1:])
         await ctx.message.delete()
         self.players[ctx.guild.id] = await Player.create(
@@ -125,6 +128,7 @@ class Music(commands.Cog):
             channel_name=channel_name,
             logger=self.logger
         )
+        
         reply = await ctx.send(f"Tudo pronto para receber comandos no canal <#{self.players[ctx.guild.id].music_channel.id}>!")
         await asyncio.sleep(3)
         await reply.delete()

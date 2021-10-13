@@ -44,33 +44,47 @@ class Player(commands.Cog):
                      client: Client,
                      guild: Guild,
                      session: Session,
-                     channel_name: Optional[str] = "musica-do-milho",
+                     channel_name: Optional[str] = None,
                      logger: Optional[logging.Logger] = None):
 
         self = Player(client, guild, session, logger)
         
+        channel_name = channel_name if channel_name else "musica-do-milho"
+
+        server = session.query(Server).filter(Server.guild_id == self.guild.id).first()
+        
         channel = None
-        for ch in guild.text_channels:
-            if ch.name == channel_name:
-                channel = ch
-                break
+        if server:
+            logger.debug(f"fixing channel on server {guild.id}")
+            channel = guild.get_channel(server.channel_id)
+
+        if channel is None:
+            for ch in guild.text_channels:
+                if ch.name == channel_name:
+                    channel = ch
+                    break
 
         if channel:
+            logger.debug(f"cleaning channel on server {guild.id}")
             await channel.purge()
             self.music_channel = channel
         else:
+            logger.debug(f"creating channel on server {guild.id}")
             self.music_channel = await self.guild.create_text_channel(channel_name, topic="""
-            ⏯️ Pausar/Resumir a música
-            ⏹ Para e limpa a fila
-            ⏭️ Pula a música
-            🔈 Diminui o volume
-            🔊 Aumenta o volume
-            🔄 Ativar/Desativar Loop
-            🔀 Ativar/Desativar Shuffle
+                ⏯️ Pausar/Resumir a música
+                ⏹ Para e limpa a fila
+                ⏭️ Pula a música
+                🔈 Diminui o volume
+                🔊 Aumenta o volume
+                🔄 Ativar/Desativar Loop
+                🔀 Ativar/Desativar Shuffle
             """)
 
-        channel_item = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
-        self.session.add(channel_item)
+        if server:
+            server.channel_id = self.music_channel.id
+        else:
+            server = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
+            self.session.add(server)
         self.session.commit()
 
         content, embed = self.create_embed()
@@ -178,7 +192,6 @@ class Player(commands.Cog):
             self.play(0)
 
         self.update()
-            
 
     def play_pause(self):
         self.info("Running play_pause")
