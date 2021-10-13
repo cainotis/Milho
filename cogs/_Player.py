@@ -1,10 +1,12 @@
-import re
-import math
 import discord
 import asyncio
-from discord import Guild, Message, TextChannel, Client, User, VoiceClient 
-from discord.ext.commands import Context
-from random import Random, random
+from discord import Guild, \
+                    Message, \
+                    TextChannel, \
+                    Client, \
+                    User, \
+                    VoiceClient 
+from random import Random
 from discord.ext import commands
 from typing import Optional, List
 import logging
@@ -42,25 +44,36 @@ class Player(commands.Cog):
                      client: Client,
                      guild: Guild,
                      session: Session,
+                     channel_name: Optional[str] = "musica-do-milho",
                      logger: Optional[logging.Logger] = None):
 
         self = Player(client, guild, session, logger)
         
-        content, embed = self.create_embed()
-        self.music_channel = await self.guild.create_text_channel("musica-do-milho", topic="""
-        ⏯️ Pausar/Resumir a música
-        ⏹ Para e limpa a fila
-        ⏭️ Pula a música
-        🔈 Diminui o volume
-        🔊 Aumenta o volume
-        🔄 Ativar/Desativar Loop
-        🔀 Ativar/Desativar Shuffle
-        """)
+        channel = None
+        for ch in guild.text_channels:
+            if ch.name == channel_name:
+                channel = ch
+                break
+
+        if channel:
+            await channel.purge()
+            self.music_channel = channel
+        else:
+            self.music_channel = await self.guild.create_text_channel(channel_name, topic="""
+            ⏯️ Pausar/Resumir a música
+            ⏹ Para e limpa a fila
+            ⏭️ Pula a música
+            🔈 Diminui o volume
+            🔊 Aumenta o volume
+            🔄 Ativar/Desativar Loop
+            🔀 Ativar/Desativar Shuffle
+            """)
 
         channel_item = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
         self.session.add(channel_item)
         self.session.commit()
 
+        content, embed = self.create_embed()
         self.message = await self.music_channel.send(content=content, embed=embed)
         await self.message.add_reaction("⏯️")
         await self.message.add_reaction("⏹️")
