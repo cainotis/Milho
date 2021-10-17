@@ -6,48 +6,48 @@ import yt_dlp
 
 DEFAULT_VOLUME = 0.5
 
-def fetch_sources(input):
-
-    single = re.search(
-        r"(https?://(www\.|m\.|)youtube\.com/watch.*)|(https?:\\youtu\.be\/.*)", input) != None
-
-    playlist = re.search(
-        r"https?://(www\.|m\.|)youtube\.com/playlist\?list=.*", input) != None
-
-    text = not(single or playlist)
-
-    YDL_OPTIONS = {"format": "bestaudio"}
-    if text:
-        input = "ytsearch:" + input
-    
-    info = yt_dlp.YoutubeDL(
-        YDL_OPTIONS).extract_info(input, download=False)
-    if single:
-        entries = [info]
-    else:
-        entries = info["entries"]
-
-    songs = []
-    for entry in entries:
-
-        title = entry["title"]
-        url = entry['formats'][0]['url']
-        duration = entry["duration"]
-        thumbnail = entry["thumbnails"][-1]["url"]
-        volume = DEFAULT_VOLUME
-
-        songs.append(Song(title, url, duration, thumbnail, volume))
-
-    return songs
-
 
 class Song():
 
     DEFAULT_TITLE = "Nenhuma música tocando"
     FFMPEG_OPTIONS = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 ',
-
     }
+
+    @classmethod
+    def fetch_sources(self, input):
+
+        single = re.search(
+            r"(https?://(www\.|m\.|)youtube\.com/watch.*)|(https?:\\youtu\.be\/.*)", input) != None
+
+        playlist = re.search(
+            r"https?://(www\.|m\.|)youtube\.com/playlist\?list=.*", input) != None
+
+        text = not(single or playlist)
+
+        YDL_OPTIONS = {"format": "bestaudio"}
+        if text:
+            input = "ytsearch:" + input
+        
+        info = yt_dlp.YoutubeDL(
+            YDL_OPTIONS).extract_info(input, download=False)
+        if single:
+            entries = [info]
+        else:
+            entries = info["entries"]
+
+        songs = []
+        for entry in entries:
+
+            title = entry["title"]
+            url = entry['formats'][0]['url']
+            duration = entry["duration"]
+            thumbnail = entry["thumbnails"][-1]["url"]
+            volume = DEFAULT_VOLUME
+
+            songs.append(Song(title, url, duration, thumbnail, volume))
+
+        return songs
 
     def __init__(self, title=DEFAULT_TITLE, url="", duration=0, image="", volume=0):
         self.title = title

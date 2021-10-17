@@ -11,7 +11,7 @@ from discord.ext import commands
 from typing import Optional, List
 import logging
 from sqlalchemy.orm import Session
-from Song import Song, fetch_sources
+from cogs import Song
 
 
 from models import Server
@@ -19,6 +19,7 @@ from models import Server
 class Player(commands.Cog):
 
     DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
+    DEFAULT_CHANNEL_NAME = "musica-do-milho"
 
     NO_SONG:Song = Song()
 
@@ -49,7 +50,7 @@ class Player(commands.Cog):
 
         self = Player(client, guild, session, logger)
         
-        channel_name = channel_name if channel_name else "musica-do-milho"
+        channel_name = channel_name if channel_name else self.DEFAULT_CHANNEL_NAME
 
         server = session.query(Server).filter(Server.guild_id == self.guild.id).first()
         
@@ -146,7 +147,7 @@ class Player(commands.Cog):
 
     def add_to_queue(self, query):
         self.info("Fetching sources")
-        songs = fetch_sources(query)
+        songs = Song.fetch_sources(query)
         self.info("Finished fetching sources")
         self.queue.extend(songs)
         if self.current_song == self.NO_SONG:
