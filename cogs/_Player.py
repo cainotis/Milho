@@ -18,7 +18,7 @@ from models import Server
 
 class Player(commands.Cog):
 
-    DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
+    DEFAULT_THUMBNAIL = "https://cdn.discordapp.com/emojis/650666094243348480.png"
     DEFAULT_CHANNEL_NAME = "musica-do-milho"
     DEFAULT_VOLUME = 0.1
 
