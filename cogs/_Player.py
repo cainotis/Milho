@@ -20,6 +20,7 @@ class Player(commands.Cog):
 
     DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
     DEFAULT_CHANNEL_NAME = "musica-do-milho"
+    DEFAULT_VOLUME = 0.1
 
     NO_SONG:Song = Song()
 

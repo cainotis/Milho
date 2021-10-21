@@ -4,7 +4,7 @@ import math
 import discord
 import yt_dlp
 
-DEFAULT_VOLUME = 0.5
+DEFAULT_VOLUME = 0.1
 
 
 class Song():
