@@ -25,10 +25,15 @@ class Music(commands.Cog):
 
     async def join(self, message):
         voice_channel = message.author.voice.channel
-        if message.guild.voice_client is None:
+        voice_client = message.guild.voice_client
+        if voice_client is None:
             await voice_channel.connect()
         else:
-            await message.guild.voice_client.move_to(voice_channel)
+            if voice_client.channel.id != voice_channel.id:
+                self.logger.debug("song request by a different channel user")
+                embed = Embed(title="You have to be in the same Voice Channel as the bot.", colour=Colour.dark_magenta())
+                await message.channel.send(embed=embed, delete_after=2.0)
+                raise PermissionError('song request by a different channel user')
 
     def is_valid(self, message):
         # TODO: check with database if channel is in database CHECK
@@ -98,12 +103,12 @@ class Music(commands.Cog):
             if message.author.voice is None:
                 self.logger.debug("song request by a no channel user")
                 embed = Embed(title="You have to join a voice channel first.", colour=Colour.dark_magenta())
-                reply = await message.channel.send(embed=embed)
-                await asyncio.sleep(2)
-                await reply.delete()
+                await message.channel.send(embed=embed, delete_after=2.0)
                 return
-
-            await self.join(message)
+            try:
+                await self.join(message)
+            except PermissionError:
+                return
             self.players[message.guild.id].add_to_queue(input)
         except IndexError as e:
             self.logger.error("Guild not registered")
