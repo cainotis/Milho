@@ -21,3 +21,4 @@ jobs:
         run: |
           pm2 stop milho
           pm2 start milho
+          python -m alembic upgrade head
