@@ -1,7 +1,7 @@
 name: deploy to aws
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     
 jobs:
   deploy:
