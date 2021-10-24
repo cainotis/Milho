@@ -146,3 +146,10 @@ class Music(commands.Cog):
         )
         
         await ctx.send(f"Tudo pronto para receber comandos no canal <#{self.players[ctx.guild.id].music_channel.id}>!", delete_after=3.0)
+
+    @commands.command()
+    async def volume(self, ctx, arg):
+        if not arg.isdigit():
+            await ctx.send("Argumento invalido")
+        else:
+            self.players[ctx.guild.id].set_volume(int(arg))

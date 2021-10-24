@@ -241,6 +241,11 @@ class Player(commands.Cog):
         self.current_song.change_volume(-0.02)
         self.volume -= 0.02
 
+    def set_volume(self, value):
+        self.info("Setting volume")
+        self.current_song.set_volume(value)
+        self.volume = value
+
     def loop(self):
         self.info("Running loop")
         self.loop_mode += 1
