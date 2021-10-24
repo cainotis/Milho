@@ -128,7 +128,7 @@ class Player(commands.Cog):
             "\n\nDigite o nome da música ou o url do youtube para tocar\n"
         )
         embed = discord.Embed(title=self.current_song.get_full_title())
-        value = f"__{format(self.volume, '.1f')}/1.0__"
+        value = f"__{self.volume * 500}%__"
         embed.add_field(name="Volume", value=value, inline=True)
 
         value = ["🚫", "🔁", "🔂"][self.loop_mode]
@@ -233,13 +233,13 @@ class Player(commands.Cog):
 
     def volume_up(self):
         self.info("Running volume_up")
-        self.current_song.change_volume(0.1)
-        self.volume += 0.1
+        self.current_song.change_volume(0.02)
+        self.volume += 0.02
 
     def volume_down(self):
         self.info("Running volume_down")
-        self.current_song.change_volume(-0.1)
-        self.volume -= 0.1
+        self.current_song.change_volume(-0.02)
+        self.volume -= 0.02
 
     def loop(self):
         self.info("Running loop")
