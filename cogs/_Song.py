@@ -4,8 +4,6 @@ import math
 import discord
 import yt_dlp
 
-DEFAULT_VOLUME = 0.1
-
 
 class Song():
 
@@ -43,26 +41,24 @@ class Song():
             url = entry['formats'][0]['url']
             duration = entry["duration"]
             thumbnail = entry["thumbnails"][-1]["url"]
-            volume = DEFAULT_VOLUME
 
-            songs.append(Song(title, url, duration, thumbnail, volume))
+            songs.append(Song(title, url, duration, thumbnail))
 
         return songs
 
-    def __init__(self, title=DEFAULT_TITLE, url="", duration=0, image="", volume=0):
+    def __init__(self, title=DEFAULT_TITLE, url="", duration=0, image=""):
         self.title = title
         self.url = url
         self.duration = duration
         self.image = image
-        self.volume = volume
         if url != "":
             self.source = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(
                     url,
                     **self.FFMPEG_OPTIONS,
-                    options=f'-vn -filter:a "volume={float(volume)}"'
-                ),
-                volume=volume)
+                    options=f'-vn'
+                )
+            )
         else:
             self.source = None
 
@@ -77,7 +73,9 @@ class Song():
 
     def change_volume(self, value):
         self.source.volume += value
-        self.volume += value
+
+    def set_volume(self, value):
+        self.source.volume = value
 
     def get_values(self):
         return (self.title, self.url, self.duration, self.image)
