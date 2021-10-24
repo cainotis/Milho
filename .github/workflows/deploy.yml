@@ -20,5 +20,6 @@ jobs:
       - name: Restart bot
         run: |
           pm2 stop milho
-          pm2 start milho
+          python3 -m pip install -r requirements.txt
           python3 -m alembic upgrade head
+          pm2 start milho
