@@ -3,7 +3,7 @@ from discord.ext import commands
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import logging
-import asyncio
+from discord_slash import cog_ext, SlashContext
 
 from cogs import Player
 from models import Server
@@ -153,3 +153,13 @@ class Music(commands.Cog):
             await ctx.send("Argumento invalido")
         else:
             self.players[ctx.guild.id].set_volume(int(arg))
+
+    @cog_ext.cog_slash(name="test")
+    async def _test(self, ctx: SlashContext):
+        embed = Embed(title="Embed Test")
+        await ctx.send(embed=embed)
+
+    @cog_ext.cog_slash(name="user")
+    async def _user(self, ctx: SlashContext):
+        embed = Embed(title="Embed User")
+        await ctx.send(embed=embed)
