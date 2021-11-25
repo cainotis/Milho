@@ -21,7 +21,7 @@ class Music(commands.Cog):
         self.client = client
         self.session = session
         self.logger = logger
-        self.players:Dict[Player] = {}
+        self.players: Dict[Player] = {}
 
     async def join(self, message):
         voice_channel = message.author.voice.channel
@@ -83,7 +83,7 @@ class Music(commands.Cog):
             )
         for channel in self.client.get_all_channels():
             if channel.name == Player.DEFAULT_CHANNEL_NAME:
-                    
+
                 self.players[channel.guild.id] = await Player.create(
                     client=self.client, 
                     guild=channel.guild,
@@ -144,7 +144,7 @@ class Music(commands.Cog):
             channel_name=channel_name,
             logger=self.logger
         )
-        
+
         await ctx.send(f"Tudo pronto para receber comandos no canal <#{self.players[ctx.guild.id].music_channel.id}>!", delete_after=3.0)
 
     @commands.command()

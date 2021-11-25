@@ -1,17 +1,15 @@
 import discord
 import asyncio
-from discord import Guild, \
-                    Message, \
-                    TextChannel, \
-                    Client, \
-                    User, \
-                    VoiceClient 
+from discord import \
+    Guild, \
+    Client
 from random import Random
 from discord.ext import commands
-from typing import Optional, List
+from typing import Optional
 import logging
 from sqlalchemy.orm import Session
 from cogs import Song
+from datetime import datetime, timedelta
 
 
 from models import Server
@@ -22,7 +20,7 @@ class Player(commands.Cog):
     DEFAULT_CHANNEL_NAME = "musica-do-milho"
     DEFAULT_VOLUME = 0.1
 
-    NO_SONG:Song = Song()
+    NO_SONG: Song = Song()
 
     def __init__(self,
                  client: Client,
@@ -41,6 +39,7 @@ class Player(commands.Cog):
         self.music_channel = None
         self.message = None
         self.volume = self.DEFAULT_VOLUME
+        self.last_update = datetime.now()
 
     @classmethod
     async def create(cls,
@@ -51,11 +50,11 @@ class Player(commands.Cog):
                      logger: Optional[logging.Logger] = None):
 
         self = Player(client, guild, session, logger)
-        
+
         channel_name = channel_name if channel_name else self.DEFAULT_CHANNEL_NAME
 
         server = session.query(Server).filter(Server.guild_id == self.guild.id).first()
-        
+
         channel = None
         if server:
             logger.debug(f"fixing channel on server {guild.id}")
@@ -73,7 +72,8 @@ class Player(commands.Cog):
             self.music_channel = channel
         else:
             logger.debug(f"creating channel on server {guild.id}")
-            self.music_channel = await self.guild.create_text_channel(channel_name, topic="""
+            self.music_channel = await self.guild.create_text_channel(
+                channel_name, topic="""
                 ⏯️ Pausar/Resumir a música
                 ⏹ Para e limpa a fila
                 ⏭️ Pula a música
@@ -86,12 +86,14 @@ class Player(commands.Cog):
         if server:
             server.channel_id = self.music_channel.id
         else:
-            server = Server(guild_id=self.guild.id, channel_id=self.music_channel.id)
+            server = Server(guild_id=self.guild.id,
+                            channel_id=self.music_channel.id)
             self.session.add(server)
         self.session.commit()
 
         content, embed = self.create_embed()
-        self.message = await self.music_channel.send(content=content, embed=embed)
+        self.message = await self.music_channel.send(content=content,
+                                                     embed=embed)
         await self.message.add_reaction("⏯️")
         await self.message.add_reaction("⏹️")
         await self.message.add_reaction("⏭️")
@@ -114,6 +116,16 @@ class Player(commands.Cog):
         self.message = (await self.music_channel.history().flatten())[0]
         return self
 
+    async def timeout(self):
+        while self.last_update + timedelta(minutes=5) > datetime.now():
+            await asyncio.sleep(60)
+            if self.guild.voice_client.is_playing():
+                return
+        if self.guild.voice_client.is_playing():
+            return
+        if self.guild.voice_client.is_connected():
+            await self.guild.voice_client.disconnect()
+            self.info("timeout disconnect")
 
     def info(self, message):
         self.logger.info(f"Guild {self.guild.name} {message}")
@@ -146,6 +158,7 @@ class Player(commands.Cog):
         content, embed = self.create_embed()
         asyncio.ensure_future(self.message.edit(
             content=content, embed=embed), loop=self.client.loop)
+        self.last_update = datetime.now()
 
     def add_to_queue(self, query):
         self.info("Fetching sources")
@@ -177,6 +190,11 @@ class Player(commands.Cog):
             if not self.queue:
                 self.info("The queue is empty")
                 self.current_song = self.NO_SONG
+                fut = asyncio.run_coroutine_threadsafe(self.timeout(), self.client.loop)
+                try:
+                    fut.result()
+                except:
+                    pass
             else:
                 self.info('The queue is not empty')
                 self.play()
@@ -188,7 +206,7 @@ class Player(commands.Cog):
             self.queue.append(self.current_song)
             self.play()
 
-        #Loop single
+        # Loop single
         elif self.loop_mode == 2:
             if not self.current_song:
                 self.error('Current_song error')
