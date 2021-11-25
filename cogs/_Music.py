@@ -3,7 +3,7 @@ from discord.ext import commands
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import logging
-import asyncio
+from discord_slash import cog_ext, SlashContext
 
 from cogs import Player
 from models import Server
@@ -25,10 +25,15 @@ class Music(commands.Cog):
 
     async def join(self, message):
         voice_channel = message.author.voice.channel
-        if message.guild.voice_client is None:
+        voice_client = message.guild.voice_client
+        if voice_client is None:
             await voice_channel.connect()
         else:
-            await message.guild.voice_client.move_to(voice_channel)
+            if voice_client.channel.id != voice_channel.id:
+                self.logger.debug("song request by a different channel user")
+                embed = Embed(title="You have to be in the same Voice Channel as the bot.", colour=Colour.dark_magenta())
+                await message.channel.send(embed=embed, delete_after=2.0)
+                raise PermissionError('song request by a different channel user')
 
     def is_valid(self, message):
         # TODO: check with database if channel is in database CHECK
@@ -76,6 +81,16 @@ class Music(commands.Cog):
             self.players[result.guild_id] = await Player.fetch(
                 self.client, guild, result.channel_id, self.session, self.logger
             )
+        for channel in self.client.get_all_channels():
+            if channel.name == Player.DEFAULT_CHANNEL_NAME:
+                    
+                self.players[channel.guild.id] = await Player.create(
+                    client=self.client, 
+                    guild=channel.guild,
+                    session=self.session,
+                    channel_name=channel.name,
+                    logger=self.logger
+                )
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -88,12 +103,12 @@ class Music(commands.Cog):
             if message.author.voice is None:
                 self.logger.debug("song request by a no channel user")
                 embed = Embed(title="You have to join a voice channel first.", colour=Colour.dark_magenta())
-                reply = await message.channel.send(embed=embed)
-                await asyncio.sleep(2)
-                await reply.delete()
+                await message.channel.send(embed=embed, delete_after=2.0)
                 return
-
-            await self.join(message)
+            try:
+                await self.join(message)
+            except PermissionError:
+                return
             self.players[message.guild.id].add_to_queue(input)
         except IndexError as e:
             self.logger.error("Guild not registered")
@@ -117,10 +132,11 @@ class Music(commands.Cog):
     @commands.command()
     async def setup(self, ctx):
 
-        self.logger.info(f"seting up text channel in {ctx.guild.id}")
+        self.logger.info(f"setting up text channel in {ctx.guild.id}")
 
         channel_name = ' '.join(ctx.message.clean_content.split()[1:])
         await ctx.message.delete()
+
         self.players[ctx.guild.id] = await Player.create(
             client=self.client, 
             guild=ctx.guild,
@@ -129,7 +145,21 @@ class Music(commands.Cog):
             logger=self.logger
         )
         
-        reply = await ctx.send(f"Tudo pronto para receber comandos no canal <#{self.players[ctx.guild.id].music_channel.id}>!")
-        await asyncio.sleep(3)
-        await reply.delete()
+        await ctx.send(f"Tudo pronto para receber comandos no canal <#{self.players[ctx.guild.id].music_channel.id}>!", delete_after=3.0)
 
+    @commands.command()
+    async def volume(self, ctx, arg):
+        if not arg.isdigit():
+            await ctx.send("Argumento invalido")
+        else:
+            self.players[ctx.guild.id].set_volume(int(arg))
+
+    @cog_ext.cog_slash(name="test")
+    async def _test(self, ctx: SlashContext):
+        embed = Embed(title="Embed Test")
+        await ctx.send(embed=embed)
+
+    @cog_ext.cog_slash(name="user")
+    async def _user(self, ctx: SlashContext):
+        embed = Embed(title="Embed User")
+        await ctx.send(embed=embed)

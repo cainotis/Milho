@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord_slash import SlashCommand
 import os
 import sys
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ def reload_extensions(client: commands.Bot):
 
 
 client = commands.Bot(command_prefix='?', intents=discord.Intents.all())
+slash = SlashCommand(client)
 
 @client.command()
 async def reload(ctx):

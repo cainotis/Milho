@@ -11,14 +11,16 @@ from discord.ext import commands
 from typing import Optional, List
 import logging
 from sqlalchemy.orm import Session
-from Song import Song, fetch_sources
+from cogs import Song
 
 
 from models import Server
 
 class Player(commands.Cog):
 
-    DEFAULT_THUMBNAIL = "https://c.tenor.com/YUF4morhOVcAAAAC/peach-cat-boba-tea.gif"
+    DEFAULT_THUMBNAIL = "https://cdn.discordapp.com/emojis/650666094243348480.png"
+    DEFAULT_CHANNEL_NAME = "musica-do-milho"
+    DEFAULT_VOLUME = 0.1
 
     NO_SONG:Song = Song()
 
@@ -38,6 +40,7 @@ class Player(commands.Cog):
         self.loop_mode = 0
         self.music_channel = None
         self.message = None
+        self.volume = self.DEFAULT_VOLUME
 
     @classmethod
     async def create(cls,
@@ -49,7 +52,7 @@ class Player(commands.Cog):
 
         self = Player(client, guild, session, logger)
         
-        channel_name = channel_name if channel_name else "musica-do-milho"
+        channel_name = channel_name if channel_name else self.DEFAULT_CHANNEL_NAME
 
         server = session.query(Server).filter(Server.guild_id == self.guild.id).first()
         
@@ -125,7 +128,7 @@ class Player(commands.Cog):
             "\n\nDigite o nome da música ou o url do youtube para tocar\n"
         )
         embed = discord.Embed(title=self.current_song.get_full_title())
-        value = f"__{format(self.current_song.volume, '.1f')}/1.0__"
+        value = f"__{self.volume * 500}%__"
         embed.add_field(name="Volume", value=value, inline=True)
 
         value = ["🚫", "🔁", "🔂"][self.loop_mode]
@@ -146,7 +149,7 @@ class Player(commands.Cog):
 
     def add_to_queue(self, query):
         self.info("Fetching sources")
-        songs = fetch_sources(query)
+        songs = Song.fetch_sources(query)
         self.info("Finished fetching sources")
         self.queue.extend(songs)
         if self.current_song == self.NO_SONG:
@@ -158,6 +161,7 @@ class Player(commands.Cog):
             index = Random.randint(len(self.queue) - 1) if self.is_shuffle else 0
         self.info('Playing song')
         self.current_song = self.queue[index]
+        self.current_song.set_volume(self.volume)
         self.guild.voice_client.play(
             self.current_song.source, after=self.play_next
         )
@@ -229,11 +233,18 @@ class Player(commands.Cog):
 
     def volume_up(self):
         self.info("Running volume_up")
-        self.current_song.change_volume(0.1)
+        self.current_song.change_volume(0.02)
+        self.volume += 0.02
 
     def volume_down(self):
         self.info("Running volume_down")
-        self.current_song.change_volume(-0.1)
+        self.current_song.change_volume(-0.02)
+        self.volume -= 0.02
+
+    def set_volume(self, value):
+        self.info("Setting volume")
+        self.current_song.set_volume(value)
+        self.volume = value
 
     def loop(self):
         self.info("Running loop")
